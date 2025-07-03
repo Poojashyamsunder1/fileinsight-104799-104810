@@ -5,7 +5,7 @@ import "./App.css";
   PUBLIC_INTERFACE
   Main App component integrating Supabase Auth, PDF upload/preview, and question input.
   Features:
-    - User authentication via Supabase (Google provider)
+    - User authentication via Supabase (Google or Email)
     - PDF/book file upload to Supabase Storage ('books' bucket)
     - File preview after upload
     - Question input (prepared for future API integration)
@@ -14,14 +14,16 @@ import "./App.css";
 */
 
 /**
- * SUPABASE CONFIG: injected from provided env vars
- * Replace these with process.env.* in production for security.
+ * SUPABASE CONFIG: Uses environment variables for security.
+ * Fill in .env or use .env.example as a template.
  */
-const SUPABASE_URL = "https://sirvwsslwxxxuysywyan.supabase.co";
+const SUPABASE_URL =
+  process.env.REACT_APP_SUPABASE_URL || "https://sirvwsslwxxxuysywyan.supabase.co";
 const SUPABASE_KEY =
+  process.env.REACT_APP_SUPABASE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpcnZ3c3Nsd3h4eHV5c3l3eWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MDk1NTgsImV4cCI6MjA2NzA4NTU1OH0.DfGb7i74DGejUnKuzKDiubyM2OsL_Qx0QIYtaZPiwos";
 
-// Dynamically import supabase-js so existing template remains minimal at build time.
+// Dynamically import supabase-js for minimal build footprint.
 let supabase = null;
 const getSupabase = async () => {
   if (!supabase) {
@@ -57,11 +59,10 @@ function AccentButton({ children, ...props }) {
 }
 
 /**
- * Use Supabase Auth and Session management
+ * Use Supabase Auth and session management
  */
 function useSupabaseAuth() {
   const [user, setUser] = useState(null);
-  // Start session listen once supabase is loaded
   useEffect(() => {
     let sub = null;
     getSupabase().then((client) => {
@@ -77,7 +78,7 @@ function useSupabaseAuth() {
 
 // PUBLIC_INTERFACE
 function App() {
-  // Theme: minimal, modern, light (with accent, primary/secondary colors)
+  // Theme: modern, light
   const [theme] = useState("light");
 
   // Auth
@@ -85,9 +86,9 @@ function App() {
   const [initializing, setInitializing] = useState(true);
 
   // File upload & preview state
-  const [file, setFile] = useState(null); // File object to upload
+  const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [fileUrl, setFileUrl] = useState(null); // Download URL from storage
+  const [fileUrl, setFileUrl] = useState(null);
   const [uploadError, setUploadError] = useState(null);
 
   // Question input
@@ -99,24 +100,53 @@ function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    // set accent, primary, secondary as CSS variables
     document.documentElement.style.setProperty("--accent-color", "#38bdf8");
     document.documentElement.style.setProperty("--primary-color", "#2563eb");
     document.documentElement.style.setProperty("--secondary-color", "#64748b");
   }, [theme]);
 
-  // Detect supabase-js load for SSR-safe minimal template
+  // Detect supabase-js load
   useEffect(() => {
     getSupabase().then(() => setInitializing(false));
   }, []);
 
   // PUBLIC_INTERFACE
-  // Start login with Supabase Google Provider
-  async function handleSignIn() {
+  // Start login with Supabase Auth Provider (Google or email, as allowed)
+  /**
+   * Initiates sign-in using Supabase provider.
+   * @param {'google'|'email'} provider - Auth provider to use
+   * @param {string} [email] - Email for email sign-in (if applicable)
+   */
+  async function handleSignIn(provider = "google", email = "") {
     const client = await getSupabase();
-    await client.auth.signInWithOAuth({
-      provider: "google",
-    });
+
+    // Supported providers must match what's enabled in Supabase dashboard!
+    const enabledProviders = ["google", "email"];
+    if (!enabledProviders.includes(provider)) {
+      alert(`Auth provider '${provider}' not supported or not enabled.`);
+      return;
+    }
+
+    try {
+      if (provider === "google") {
+        await client.auth.signInWithOAuth({ provider: "google" });
+      } else if (provider === "email") {
+        if (!email) {
+          alert("Please enter a valid email address.");
+          return;
+        }
+        // Send link to email for magic link sign-in
+        const { error } = await client.auth.signInWithOtp({ email });
+        if (error) throw error;
+        alert("Check your email for the magic link to sign in.");
+      }
+    } catch (e) {
+      alert(
+        e?.error_description ||
+          e?.message ||
+          "There was a problem signing in. Please try again."
+      );
+    }
   }
 
   // PUBLIC_INTERFACE
@@ -183,13 +213,72 @@ function App() {
 
   // Component: Authentication
   function AuthView() {
+    // Email sign-in state
+    const [email, setEmail] = useState("");
+    const [emailSent, setEmailSent] = useState(false);
+
     return (
       <div className="box auth-box">
         <h2 style={{ color: "var(--primary-color)", marginBottom: 8 }}>Sign In</h2>
         <p style={{ color: "var(--secondary-color)", fontWeight: 400 }}>
           Please sign in to upload and preview your files.
         </p>
-        <AccentButton onClick={handleSignIn}>Sign in with Google</AccentButton>
+        {/* Google Sign-in (primary) */}
+        <AccentButton onClick={() => handleSignIn("google")}>
+          Sign in with Google
+        </AccentButton>
+        <hr style={{ margin: "18px 0", border: "none", borderTop: "1px solid #eee" }} />
+        {/* Email Magic Link sign-in */}
+        <div style={{ marginBottom: 0 }}>
+          <label htmlFor="email-signin" style={{ fontWeight: 500, marginBottom: 2, display: "block" }}>
+            Or sign in via email:
+          </label>
+          <input
+            id="email-signin"
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setEmailSent(false);
+            }}
+            placeholder="you@example.com"
+            style={{
+              fontSize: 15,
+              border: "1px solid var(--border-color)",
+              borderRadius: 7,
+              padding: 10,
+              marginBottom: 5,
+              color: "var(--primary-color)",
+              background: "#f7fafd"
+            }}
+            disabled={emailSent}
+          />
+          <AccentButton
+            onClick={async () => {
+              await handleSignIn("email", email);
+              setEmailSent(true);
+            }}
+            disabled={!email || emailSent}
+            style={{ marginTop: 3, width: "100%" }}
+          >
+            {emailSent ? "Magic Link Sent" : "Sign in with Email"}
+          </AccentButton>
+          {emailSent && (
+            <div
+              style={{
+                color: "var(--primary-color)",
+                background: "#e5f6fd",
+                marginTop: 9,
+                padding: "5px 9px",
+                borderRadius: 4,
+                fontSize: 14,
+                fontStyle: "italic",
+              }}
+            >
+              Check your email for a link to log in!
+            </div>
+          )}
+        </div>
       </div>
     );
   }
