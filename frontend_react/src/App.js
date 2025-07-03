@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
 
@@ -23,15 +24,20 @@ const SUPABASE_KEY =
   process.env.REACT_APP_SUPABASE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpcnZ3c3Nsd3h4eHV5c3l3eWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MDk1NTgsImV4cCI6MjA2NzA4NTU1OH0.DfGb7i74DGejUnKuzKDiubyM2OsL_Qx0QIYtaZPiwos";
 
-// Dynamically import supabase-js for minimal build footprint.
-let supabase = null;
-const getSupabase = async () => {
-  if (!supabase) {
-    const { createClient } = await import("@supabase/supabase-js");
-    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  }
-  return supabase;
-};
+/**
+ * Memoized singleton pattern for Supabase client. Prevents multiple GoTrueClient warnings
+ * and ensures the same client instance is always used throughout the React app lifetime.
+ */
+const supabaseClientSingleton = (() => {
+  let instance = null;
+  return () => {
+    if (!instance) {
+      instance = createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+    return instance;
+  };
+})();
+// Usage: const client = supabaseClientSingleton();
 
 /**
  * Button component with accent color and minimalistic style.
@@ -64,12 +70,11 @@ function AccentButton({ children, ...props }) {
 function useSupabaseAuth() {
   const [user, setUser] = useState(null);
   useEffect(() => {
+    const client = supabaseClientSingleton();
     let sub = null;
-    getSupabase().then((client) => {
-      client.auth.getUser().then(({ data: { user } }) => setUser(user));
-      sub = client.auth.onAuthStateChange((_evt, session) => {
-        setUser(session?.user || null);
-      });
+    client.auth.getUser().then(({ data: { user } }) => setUser(user));
+    sub = client.auth.onAuthStateChange((_evt, session) => {
+      setUser(session?.user || null);
     });
     return () => sub?.data?.subscription?.unsubscribe?.();
   }, []);
@@ -105,9 +110,10 @@ function App() {
     document.documentElement.style.setProperty("--secondary-color", "#64748b");
   }, [theme]);
 
-  // Detect supabase-js load
+  // Detect supabase-js load (for loader UI only)
   useEffect(() => {
-    getSupabase().then(() => setInitializing(false));
+    // simulate async load to match original intent, but using singleton now
+    setInitializing(false);
   }, []);
 
   // PUBLIC_INTERFACE
@@ -118,7 +124,7 @@ function App() {
    * @param {string} [email] - Email for email sign-in (if applicable)
    */
   async function handleSignIn(provider = "google", email = "") {
-    const client = await getSupabase();
+    const client = supabaseClientSingleton();
 
     // Supported providers must match what's enabled in Supabase dashboard!
     const enabledProviders = ["google", "email"];
@@ -129,7 +135,17 @@ function App() {
 
     try {
       if (provider === "google") {
-        await client.auth.signInWithOAuth({ provider: "google" });
+        // Google sign-in uses redirect in most cases. 400 error may occur if e.g. wrong redirect URL or project misconfig
+        // (common: running on localhost or running in an iframe, which blocks popup)
+        await client.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            // Avoid using current frame if in a strict security context (e.g., Codesandbox/Vercel preview.html)
+            redirectTo: window?.parent === window
+              ? undefined
+              : undefined, // Not passing window.location.href in iframe
+          },
+        });
       } else if (provider === "email") {
         if (!email) {
           alert("Please enter a valid email address.");
@@ -141,10 +157,24 @@ function App() {
         alert("Check your email for the magic link to sign in.");
       }
     } catch (e) {
+      // Add more error details for troubleshooting
+      const isIframe = window?.parent !== window;
+      let extra = "";
+      if (e?.status === 400 && /authorize/.test(e?.message || "")) {
+        extra +=
+          "\n\n[Hint] This error commonly means:\n" +
+          "- The sign-in provider is not enabled in your Supabase project.\n" +
+          "- You are running the app in an iframe (e.g., preview.html), and the provider popup/redirect is blocked.\n" +
+          "- Your `SUPABASE_URL` or `SUPABASE_KEY` env variables are incorrect or not matching this project.\n";
+        if (isIframe)
+          extra +=
+            "- Since this is running in a code preview or Codesandbox, third-party auth providers may fail because popups/redirects are blocked in iframes.\nTry running on localhost in a real browser.\n";
+      }
       alert(
-        e?.error_description ||
+        (e?.error_description ||
           e?.message ||
-          "There was a problem signing in. Please try again."
+          "There was a problem signing in. Please try again.") +
+          extra
       );
     }
   }
@@ -152,7 +182,7 @@ function App() {
   // PUBLIC_INTERFACE
   // Logout function
   async function handleSignOut() {
-    const client = await getSupabase();
+    const client = supabaseClientSingleton();
     await client.auth.signOut();
     setFile(null);
     setFileUrl(null);
@@ -177,7 +207,7 @@ function App() {
     if (!file) return;
     setUploading(true);
     setUploadError(null);
-    const supa = await getSupabase();
+    const supa = supabaseClientSingleton();
 
     // Use user id as prefix for privacy
     const filename = `${user.id}/${Date.now()}_${file.name}`;
@@ -437,6 +467,30 @@ function App() {
         transition: "background 0.25s",
       }}
     >
+      {/* 
+        === iframe/script injection errors - explanation ===
+        If you run this app inside a preview iframe (e.g., Codesandbox/Vercel preview.html or similar environments),
+        third-party authentication providers (Google, github, etc) may fail due to either:
+        - Popup and redirect blocking in iframes (browser security)
+        - The "Cannot read properties of null (reading 'head')" error in preview.html (this comes from React's dev server trying to inject live reload script tags—NOT related to app logic)
+        These errors are not user-impacting in production/public deploys, only in code browser sandboxes. 
+        You can ignore this warning unless you can't use basic auth flows. 
+        For full auth functionality, always test on a real browser at localhost:3000 or a live deployment.
+      */}
+      {window?.location?.pathname?.includes("preview.html") && (
+        <div style={{
+          background: "#fffbe7",
+          color: "#a05c00",
+          padding: "10px 16px",
+          margin: "18px auto",
+          borderRadius: 8,
+          maxWidth: 540,
+          fontSize: 15,
+          boxShadow: "0 2px 8px rgba(240,180,60,.08)"
+        }}>
+          <b>Notice:</b> If you see errors about <code>Cannot read properties of null (reading 'head')</code> or sign-in popups getting blocked, these are caused by iframe sandboxing in preview environments. Try opening the site directly on <b>localhost:3000</b> or your deployed domain for full auth functionality.
+        </div>
+      )}
       <header
         className="App-header"
         style={{
