@@ -1,0 +1,219 @@
+:root {
+  /* PDF Wizard login page theme colors */
+  --primary-bg: #624e8d;
+  --white-main: #fff;
+  --input-outline: #b9a4e4;
+  --button-bg: #b9a4e4;
+  --input-foreground: #fff;
+  --secondary-text: rgba(255,255,255,0.7);
+  --cta: #fff;
+}
+
+.lp-bg {
+  min-height: 100vh;
+  min-width: 100vw;
+  background: var(--primary-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.lp-container {
+  width: 100%;
+  max-width: 370px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* vertical centering */
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 46px 14px 32px;
+}
+
+.lp-logo-wrap {
+  margin-top: 14px;
+}
+.lp-logo-circle {
+  width: 60px;
+  height: 60px;
+  background: var(--white-main);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  box-shadow: 0 0 0 4px rgba(185,164,228,0.06);
+}
+
+.lp-title {
+  font-size: 2.15rem;
+  font-weight: 700;
+  color: var(--white-main);
+  letter-spacing: 0.005em;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.lp-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lp-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0px;
+}
+
+.lp-input {
+  width: 100%;
+  padding: 12px 16px 12px 44px;
+  font-size: 1rem;
+  border-radius: 16px;
+  border: 1.5px solid var(--input-outline);
+  background: transparent;
+  color: var(--input-foreground);
+  outline: none;
+  font-weight: 400;
+  caret-color: var(--button-bg);
+  transition: border-color 0.16s;
+}
+.lp-input:focus {
+  border-color: var(--button-bg);
+  background: rgba(255,255,255,0.03);
+}
+
+.lp-icon-left {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  pointer-events: none;
+  opacity: 0.82;
+}
+.lp-icon-right {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  opacity: 0.77;
+  background: none;
+  outline: none;
+  border: none;
+  padding: 0;
+  display: flex;
+}
+.lp-forgot {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.97rem;
+  color: var(--secondary-text);
+  font-weight: 400;
+  cursor: pointer;
+  padding-right: 41px;
+  text-decoration: underline;
+  opacity: 0.90;
+  transition: color 0.16s;
+  background: none;
+}
+.lp-forgot:hover,
+.lp-signup-link:hover {
+  color: var(--cta);
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.lp-btn {
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 6px;
+  padding: 0 16px;
+  height: 50px;
+  border: none;
+  border-radius: 16px;
+  background: var(--button-bg);
+  color: #fff;
+  font-size: 1.11rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(185,164,228,0.08);
+  transition: background 0.15s, color 0.15s, opacity 0.16s;
+}
+.lp-btn:active {
+  opacity: 0.88;
+}
+.lp-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lp-error {
+  color: #ffdbe2;
+  background: rgba(87,12,47,0.16);
+  font-size: 0.98rem;
+  font-weight: 500;
+  padding: 7.5px 16px;
+  border-radius: 12px;
+  margin: 5px 0 2px;
+  text-align: center;
+}
+
+.lp-signup {
+  margin-top: 24px;
+  text-align: center;
+  width: 100%;
+  font-size: 0.98rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.lp-signup-hint {
+  color: var(--secondary-text);
+  font-weight: 400;
+  margin-right: 3px;
+}
+
+.lp-signup-link {
+  color: var(--cta);
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 2px;
+  text-decoration: none;
+  opacity: 0.98;
+}
+
+@media (max-width: 400px) {
+  .lp-container {
+    max-width: 99vw;
+    padding: 23px 3vw 18px;
+  }
+  .lp-title {
+    font-size: 1.42rem;
+  }
+  .lp-logo-circle {
+    width: 45px;
+    height: 45px;
+  }
+  .lp-btn { height: 44px; font-size: 0.97rem;}
+}
+
+/* Hide spin buttons on type=number inputs (future) */
+.lp-input[type="number"]::-webkit-inner-spin-button,
+.lp-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Smooth interaction for focus, hover */
+.lp-input:hover, .lp-input:focus { border-color: var(--button-bg); }
