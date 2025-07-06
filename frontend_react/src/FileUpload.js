@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import PdfPreview from "./PdfPreview";
 import "./App.css";
 
 /**
@@ -68,6 +69,8 @@ function FileUpload({ onUploadComplete }) {
   const [success, setSuccess] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragHover, setDragHover] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null); // For PDF preview (Supabase public URL)
+  const [lastUploadedFile, setLastUploadedFile] = useState(null); // Stores info for preview after upload
   const inputRef = useRef();
 
   // Handles file selection or drop
@@ -92,6 +95,8 @@ function FileUpload({ onUploadComplete }) {
   const handleUpload = async () => {
     setUploading(true); setError(""); setSuccess("");
     setProgress(2); // show bar start
+    setPreviewUrl(null);
+    setLastUploadedFile(null);
 
     // Ensure session
     const supabase = supabaseClientSingleton();
@@ -121,6 +126,19 @@ function FileUpload({ onUploadComplete }) {
 
       setProgress(100);
       setSuccess("Upload successful!");
+
+      // Retrieve the public URL for preview
+      const { data: urlData } = supabase.storage.from("files").getPublicUrl(path);
+      const publicUrl = urlData?.publicUrl || null;
+      // For PDFs only: show preview
+      const previewable = file.name.toLowerCase().endsWith(".pdf");
+      setPreviewUrl(previewable ? (publicUrl || file) : null); // Fallback to file if needed
+      setLastUploadedFile({
+        file,
+        url: publicUrl,
+        previewable
+      });
+
       if (onUploadComplete) onUploadComplete({ file, storagePath: path, metadata: data });
       setTimeout(() => setSuccess(""), 3000);
       setFile(null);
@@ -259,6 +277,18 @@ function FileUpload({ onUploadComplete }) {
       >
         {uploading ? "Uploading..." : "Upload"}
       </button>
+
+      {/* PDF preview section, styled per app, only after upload and for PDFs */}
+      {(!!previewUrl && !!lastUploadedFile?.previewable) &&
+        <PdfPreview
+          fileUrl={previewUrl}
+          style={{
+            margin: "32px auto 6px",
+            border: "1.5px solid #b9a4e4",
+            background: "#faf9fd"
+          }}
+        />
+      }
     </div>
   );
 }
