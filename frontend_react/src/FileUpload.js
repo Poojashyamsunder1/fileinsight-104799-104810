@@ -12,7 +12,7 @@ import "./App.css";
  * - Shows file name and upload progress
  * - Handles upload state (idle, uploading, success, failure)
  * - Visually matches app's minimal, modern style
- * - Integrates with Supabase "files" bucket (see assets/supabase.md)
+ * - Integrates with Supabase "pdfwizard" bucket (see assets/supabase.md)
  * - Only PDF/book (limit: .pdf, .epub, .mobi, .azw3 etc. – can adjust accept)
  */
 
@@ -92,7 +92,7 @@ function FileUpload({ onUploadComplete }) {
     setProgress(0); setSuccess("");
   };
 
-  // Handles upload to Supabase Storage ("files" bucket)
+  // Handles upload to Supabase Storage ("pdfwizard" bucket)
   const handleUpload = async () => {
     setUploading(true); setError(""); setSuccess("");
     setProgress(2); // show bar start
@@ -115,10 +115,10 @@ function FileUpload({ onUploadComplete }) {
       // But for small files, can just set instantly to 100.
       setProgress(15);
 
-      // Upload file into "files" bucket, upsert: true (overwrite if same name/path, rare)
+      // Upload file into "pdfwizard" bucket, upsert: true (overwrite if same name/path, rare)
       const { data, error: uploadError } = await supabase
         .storage
-        .from("files")
+        .from("pdfwizard")
         .upload(path, file, {
           cacheControl: "3600",
           upsert: true,
@@ -129,7 +129,7 @@ function FileUpload({ onUploadComplete }) {
       setSuccess("Upload successful!");
 
       // Retrieve the public URL for preview
-      const { data: urlData } = supabase.storage.from("files").getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from("pdfwizard").getPublicUrl(path);
       const publicUrl = urlData?.publicUrl || null;
       // For PDFs only: show preview
       const previewable = file.name.toLowerCase().endsWith(".pdf");
