@@ -30,8 +30,12 @@
 
 ### Minimum Policy for Authenticated Upload/Download
 
-1. **Authenticated users can insert (upload) to `books` bucket where prefix starts with their user ID:**
+#### 👇 **Important: Apply via Supabase Dashboard**
+Due to project constraints, RLS policies must be set up using the Supabase **Table Editor** UI in the dashboard — *not via code or API*.
 
+#### Required Policies (copy/paste in dashboard as needed):
+
+1. **Authenticated users can insert (upload) to `books` bucket where prefix starts with their user ID:**
 ```sql
 -- Policy name: "Authenticated users can upload to their own prefix"
 CREATE POLICY "Authenticated users can upload to their own prefix"
@@ -43,12 +47,10 @@ WITH CHECK (
   AND (storage.foldername(name) = auth.uid() OR left(name, length(auth.uid()) + 1) = auth.uid() || '/')
 );
 ```
-
 - `storage.foldername(name)` gets the prefix of the path, e.g., for `f1e2d3/123_filename.pdf`, user id is `f1e2d3`.
 - Alternatively, match with `left(name, ...)` for more robust user-id isolation.
 
 2. **Authenticated users can list/download their own objects:**
-
 ```sql
 -- Policy name: "Authenticated users can select their own files"
 CREATE POLICY "Authenticated users can select their own files"
@@ -63,11 +65,22 @@ USING (
 
 3. **Optionally, allow only the uploader/owner read/write on their files.**
 
-### How to Fix
-- Go to Supabase Project > Table editor > `storage.objects` > "RLS" tab.
-- Ensure RLS is ENABLED.
-- Add the above INSERT policy for the `books` bucket.
-- Save and deploy policies.
+#### How to Fix / Apply Policies
+
+- **Dashboard Location:**  
+  Go to: Supabase Project > Table editor > `storage.objects` > "RLS" tab.
+- **Enable RLS:**  
+  Make sure "Row Level Security" is **enabled** (switch ON).
+- **Add INSERT policy** for the `books` bucket with the SQL above:
+    - Click "New Policy" > "Insert" and paste the SQL check.
+- **Add SELECT policy** for the `books` bucket with the SQL above:
+    - Click "New Policy" > "Select" and paste the SQL check.
+- **Save and deploy policies** using the dashboard controls.
+
+---
+
+**Note:**  
+If these changes are not made, uploads will fail with "row-level security policy" errors. This is a Supabase-side config that cannot be updated from the project codebase or API. Only a project admin (in the dashboard) can make these changes.
 
 ---
 
