@@ -131,26 +131,55 @@ function FileUpload({ onUploadComplete }) {
       const { data: urlData } = supabase.storage.from("pdfwizard").getPublicUrl(path);
       const publicUrl = urlData?.publicUrl || null;
 
-      // Insert metadata about the uploaded file into the files table (MUST include user_id!)
+      // Insert metadata about the uploaded file into the files table (explicit user_id and error handling for RLS)
       try {
-        const { error: insertError } = await supabase
-          .from("files")
-          .insert([{
-            user_id: user.id,
-            file_name: file.name,
-            storage_path: path,
-            uploaded_at: new Date().toISOString(),
-            file_type: file.type || (
-              file.name.toLowerCase().endsWith(".pdf") ? "pdf"
+        // We will use the exact column names and include all required metadata, with explicit casting for user_id.
+        // Note: Supabase Auth user_id should match RLS policy (auth.uid() = user_id), and type should be uuid.
+        const fileMetadata = {
+          user_id: user.id, // Supabase user.id is a UUID string, must be set exactly
+          file_name: file.name,
+          storage_path: path,
+          uploaded_at: new Date().toISOString(),
+          file_type: file.type && typeof file.type === "string" && file.type.length > 0
+            ? file.type
+            : (file.name.toLowerCase().endsWith(".pdf") ? "pdf"
                 : file.name.toLowerCase().endsWith(".epub") ? "epub"
                 : file.name.toLowerCase().endsWith(".mobi") ? "mobi"
                 : file.name.toLowerCase().endsWith(".azw3") ? "azw3"
                 : "unknown"
-            ),
-            file_size: file.size,
-            preview_url: publicUrl
-          }]);
-        if (insertError) throw insertError;
+              ),
+          file_size: file.size,
+          preview_url: publicUrl
+        };
+
+        // Insert file row; returns error if blocked by RLS or if column mismatch
+        const { error: insertError } = await supabase
+          .from("files")
+          .insert([fileMetadata]);
+        
+        if (insertError) {
+          // Show specific error for RLS (row-level security) policy blocks
+          if (
+            insertError.code === "42501" || // permission denied (Supabase/PG)
+            insertError.message?.toLowerCase().includes("row-level security") ||
+            insertError.message?.toLowerCase().includes("violates row level security policy") ||
+            insertError.message?.toLowerCase().includes("violates policy") ||
+            insertError.message?.toLowerCase().includes("insert violates")
+          ) {
+            setError("Upload succeeded but permission denied saving file record (RLS: only your own user_id is allowed). If problem persists, logout and login again or contact support.");
+          } else if (
+            insertError.code === "23502" || // NOT NULL violation
+            insertError.message?.toLowerCase().includes("null")
+          ) {
+            setError("Upload succeeded but metadata save failed: missing required field. Please contact support.");
+          } else {
+            setError("Upload succeeded but metadata save failed: " + (insertError.message || insertError.error || "Unknown error"));
+          }
+          setUploading(false);
+          setTimeout(() => setProgress(0), 1400);
+          return;
+        }
+
         setSuccess("Upload successful!");
       } catch (metaErr) {
         setError("Upload succeeded but metadata save failed: " + (metaErr.message || metaErr.error || "Unknown error"));
