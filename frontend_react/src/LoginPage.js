@@ -14,15 +14,17 @@ import "./LoginPage.css";
 
 /**
  * SUPABASE CONFIG
- * Uses environment variables for security best practice.
+ * For security: Expects credentials in REACT_APP_SUPABASE_URL/KEY (set via environment or .env.local and not checked into version control).
+ * Fallbacks below for dev, but production should set env vars.
  */
-const SUPABASE_URL =
-  process.env.REACT_APP_SUPABASE_URL || "https://sirvwsslwxxxuysywyan.supabase.co";
-const SUPABASE_KEY =
-  process.env.REACT_APP_SUPABASE_KEY ||
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || "https://sirvwsslwxxxuysywyan.supabase.co";
+const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpcnZ3c3Nsd3h4eHV5c3l3eWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MDk1NTgsImV4cCI6MjA2NzA4NTU1OH0.DfGb7i74DGejUnKuzKDiubyM2OsL_Qx0QIYtaZPiwos";
 
-// Memoized singleton for Supabase client.
+/**
+ * Memoized singleton for Supabase client.
+ * Do NOT expose SUPABASE_KEY anywhere in the UI/DOM.
+ */
 const supabaseClientSingleton = (() => {
   let instance = null;
   return () => {
@@ -34,7 +36,7 @@ const supabaseClientSingleton = (() => {
 })();
 
 function Logo() {
-  // Circular background with purple wizard-hat SVG icon.
+  // App logo: circular background with SVG wizard-hat icon.
   return (
     <div className="lp-logo-wrap">
       <div className="lp-logo-circle">
@@ -61,7 +63,7 @@ function Logo() {
   );
 }
 
-// Input icon SVGs
+// Email and password field icons.
 function EmailIcon() {
   return (
     <svg width="18" height="18" aria-hidden="true" fill="none" viewBox="0 0 20 20">
@@ -81,7 +83,7 @@ function PasswordIcon() {
   );
 }
 function EyeIcon({ shown }) {
-  // shown: true (eye open), false (eye closed)
+  // Password visibilty toggle: eye open/closed
   return shown ? (
     <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
       <ellipse cx="10" cy="10" rx="7.3" ry="4.8" stroke="#fff" strokeOpacity="0.66" strokeWidth="1.5"/>
@@ -98,29 +100,42 @@ function EyeIcon({ shown }) {
 
 // PUBLIC_INTERFACE
 function LoginPage({ onLogin, onSignupLink, onPasswordReset }) {
-  const [email, setEmail] = useState(""); // Email input state
-  const [password, setPassword] = useState(""); // Password input state
-  const [showPassword, setShowPassword] = useState(false); // Password show/hide
-  const [errorMsg, setErrorMsg] = useState(""); // Error display
-  const [loading, setLoading] = useState(false); // Login in progress
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // PUBLIC_INTERFACE
+  // PUBLIC_INTERFACE: handles login form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
+    setSuccessMsg("");
     setLoading(true);
+
     try {
       const supabase = supabaseClientSingleton();
+      // Sign-in attempt:
       const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      if (error) throw error;
-      if (onLogin) onLogin(data?.user);
+
+      if (error) {
+        setErrorMsg(error.message || "Invalid email or password.");
+        setSuccessMsg("");
+        // Optionally, mark input borders red here.
+        return;
+      }
+
+      // If authenticated: show a transient success, then call onLogin()
+      setSuccessMsg("Login successful! Redirecting...");
+      if (onLogin) setTimeout(() => onLogin(data?.user), 400); // just a brief msg before redirect
+
     } catch (e) {
-      setErrorMsg(
-        e?.message || "Login failed. Please check your email and password."
-      );
+      setErrorMsg(e?.message || "Login failed. Please try again.");
+      setSuccessMsg("");
     } finally {
       setLoading(false);
     }
@@ -132,34 +147,37 @@ function LoginPage({ onLogin, onSignupLink, onPasswordReset }) {
         <Logo />
         <div className="lp-title">PDF Wizard</div>
         <form className="lp-form" onSubmit={handleSubmit} autoComplete="on">
-          {/* Email input with icon */}
+          {/* Email input */}
           <div className="lp-input-group lp-input-email">
             <span className="lp-icon-left"><EmailIcon /></span>
             <input
               type="email"
               autoComplete="email"
               placeholder="Email address"
-              disabled={loading}
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
               className="lp-input"
               aria-label="Email address"
+              disabled={loading}
+              spellCheck={false}
             />
           </div>
-          {/* Password input group */}
+          {/* Password input */}
           <div className="lp-input-group lp-input-password">
             <span className="lp-icon-left"><PasswordIcon /></span>
             <input
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               placeholder="Password"
-              disabled={loading}
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="lp-input"
               aria-label="Password"
+              disabled={loading}
+              spellCheck={false}
+              minLength={6}
             />
             <span
               className="lp-icon-right"
@@ -176,13 +194,15 @@ function LoginPage({ onLogin, onSignupLink, onPasswordReset }) {
               role="link"
               tabIndex={0}
               aria-label="Forgot password"
+              style={{ pointerEvents: loading ? "none" : undefined, opacity: loading ? 0.7 : 1 }}
             >
               Forgot password?
             </span>
           </div>
-          {/* Error message */}
-          {errorMsg && <div className="lp-error">{errorMsg}</div>}
-          {/* Login button */}
+          {/* Error or Success message */}
+          {errorMsg && <div className="lp-error" role="alert">{errorMsg}</div>}
+          {successMsg && <div className="lp-error" style={{background:"#d9ffe9",color:"#355141"}} role="status">{successMsg}</div>}
+          {/* Log in button */}
           <button
             className="lp-btn"
             type="submit"
@@ -201,6 +221,7 @@ function LoginPage({ onLogin, onSignupLink, onPasswordReset }) {
             role="link"
             tabIndex={0}
             aria-label="Sign up"
+            style={{ pointerEvents: loading ? "none" : undefined, opacity: loading ? 0.7 : 1 }}
           >
             Sign up
           </span>
