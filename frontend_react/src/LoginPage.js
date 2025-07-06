@@ -17,19 +17,33 @@ import "./LoginPage.css";
  * For security: Expects credentials in REACT_APP_SUPABASE_URL/KEY (set via environment or .env.local and not checked into version control).
  * Fallbacks below for dev, but production should set env vars.
  */
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || "https://sirvwsslwxxxuysywyan.supabase.co";
-const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpcnZ3c3Nsd3h4eHV5c3l3eWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MDk1NTgsImV4cCI6MjA2NzA4NTU1OH0.DfGb7i74DGejUnKuzKDiubyM2OsL_Qx0QIYtaZPiwos";
+/**
+ * PUBLIC_INTERFACE
+ * Returns environment-provided Supabase URL and KEY, warning if missing.
+ */
+function getSupabaseEnvVars() {
+  const url = process.env.REACT_APP_SUPABASE_URL || "";
+  const key = process.env.REACT_APP_SUPABASE_KEY || "";
+  if (!url || !key) {
+    // Fallback for dev, but NEVER commit real secrets in code
+    console.warn("[Supabase] Environment variables missing, using fallback demo project. Add REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY to .env.local for production.");
+    return {
+      url: "https://sirvwsslwxxxuysywyan.supabase.co",
+      key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpcnZ3c3Nsd3h4eHV5c3l3eWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MDk1NTgsImV4cCI6MjA2NzA4NTU1OH0.DfGb7i74DGejUnKuzKDiubyM2OsL_Qx0QIYtaZPiwos"
+    };
+  }
+  return { url, key };
+}
 
 /**
- * Memoized singleton for Supabase client.
- * Do NOT expose SUPABASE_KEY anywhere in the UI/DOM.
+ * Memoized singleton for Supabase client (best-practice: never expose credentials).
  */
 const supabaseClientSingleton = (() => {
   let instance = null;
   return () => {
     if (!instance) {
-      instance = createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { url, key } = getSupabaseEnvVars();
+      instance = createClient(url, key);
     }
     return instance;
   };
