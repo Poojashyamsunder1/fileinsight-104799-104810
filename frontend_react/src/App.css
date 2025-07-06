@@ -122,6 +122,12 @@
   margin-bottom: 0;
 }
 
+/* Drag-n-drop highlight animation for upload area */
+.upload-area:focus {
+  outline: 2px solid #b9a4e4;
+  background: #f4f0ff;
+}
+
 input[type="file"], input, textarea {
   border: 1px solid var(--border-color);
   border-radius: 8px;
