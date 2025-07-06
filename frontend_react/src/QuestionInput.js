@@ -37,10 +37,38 @@ const supabaseClientSingleton = (() => {
   };
 })();
 
+/**
+ * PUBLIC_INTERFACE
+ * Placeholder shell for future external API integration.
+ * To integrate: Replace the simulateApiSend function with a real API call (e.g., fetch/axios).
+ * Passes the uploaded file (via file info) and the question. Receives/set status for UI feedback.
+ */
+function usePlaceholderApi() {
+  const [apiStatus, setApiStatus] = useState("idle"); // idle | loading | success | error
+  const [apiMsg, setApiMsg] = useState("");
+  // PUBLIC_INTERFACE
+  const sendToApi = async ({ fileStoragePath, question, user }) => {
+    setApiStatus("loading");
+    setApiMsg("Sending to external API...");
+    // Simulate API call timeout
+    await new Promise((r) => setTimeout(r, 1800));
+    // This simulates a successful result; change to error by setting status accordingly
+    setApiStatus("success");
+    setApiMsg("Sent to API! (You can now integrate real backend here.)");
+    setTimeout(() => {
+      setApiStatus("idle");
+      setApiMsg("");
+    }, 1500);
+  };
+  return { apiStatus, apiMsg, sendToApi };
+}
+
 function QuestionInput({ fileId, fileStoragePath, user, onSubmitSuccess }) {
   const [question, setQuestion] = useState("");
   const [status, setStatus] = useState("idle"); // idle | loading | success | error
   const [error, setError] = useState("");
+  // For API integration placeholder:
+  const { apiStatus, apiMsg, sendToApi } = usePlaceholderApi();
 
   // Handle question submission
   // PUBLIC_INTERFACE
@@ -83,6 +111,16 @@ function QuestionInput({ fileId, fileStoragePath, user, onSubmitSuccess }) {
       setError("Could not submit question. " + (err?.message || "Try again."));
       setStatus("error");
     }
+  }
+
+  // Handler: click for the placeholder integration button
+  // PUBLIC_INTERFACE
+  async function handleSendToApi() {
+    if (!user?.id || !fileStoragePath || !question.trim()) {
+      setError("You must provide a file, question, and be logged in.");
+      return;
+    }
+    await sendToApi({ fileStoragePath, question, user });
   }
 
   // Main render
@@ -129,7 +167,7 @@ function QuestionInput({ fileId, fileStoragePath, user, onSubmitSuccess }) {
             setQuestion(e.target.value);
             setError(""); setStatus("idle");
           }}
-          disabled={status === "loading" || status === "success"}
+          disabled={status === "loading" || status === "success" || apiStatus === "loading"}
         />
         {/* Error, loading, or success message */}
         {(error && status === "error") && (
@@ -162,16 +200,77 @@ function QuestionInput({ fileId, fileStoragePath, user, onSubmitSuccess }) {
             color: "#fff",
             fontWeight: 700,
             fontSize: 16.5,
-            opacity: question.trim() && status !== "loading" ? 1 : 0.55,
-            cursor: status === "loading" ? "not-allowed" : "pointer",
+            opacity: question.trim() && status !== "loading" && apiStatus !== "loading" ? 1 : 0.55,
+            cursor: status === "loading" || apiStatus === "loading" ? "not-allowed" : "pointer",
           }}
           type="submit"
-          disabled={!question.trim() || status === "loading" || status === "success"}
+          disabled={!question.trim() || status === "loading" || status === "success" || apiStatus === "loading"}
           aria-busy={status === "loading"}
         >
           {status === "loading" ? "Submitting..." : "Submit Question"}
         </button>
       </form>
+      {/* --- PLACEHOLDER API BUTTON/FEEDBACK BELOW FORM --- */}
+      <div style={{
+        width: "100%",
+        paddingTop: 8,
+        borderTop: "1px dashed #b9a4e4",
+        marginTop: 9,
+        display: "flex",
+        alignItems: "center",
+        flexDirection: "column"
+      }}>
+        <button
+          type="button"
+          className="lp-btn"
+          style={{
+            marginTop: 0,
+            width: "87%",
+            background: "#624e8d",
+            borderRadius: 12,
+            fontSize: 16,
+            fontWeight: 700,
+            color: "#fff",
+            opacity: question.trim() && fileStoragePath && user?.id && apiStatus !== "loading" ? 1 : 0.6,
+            cursor: apiStatus === "loading" ? "wait" : "pointer"
+          }}
+          onClick={handleSendToApi}
+          disabled={!question.trim() || !fileStoragePath || !user?.id || apiStatus === "loading"}
+          aria-busy={apiStatus === "loading"}
+        >
+          {apiStatus === "loading" ? "Sending to API…" : "Send to API"}
+        </button>
+        {/* API in-progress or result indicator */}
+        {apiMsg && (
+          <div style={{
+            marginTop: 7,
+            color: apiStatus === "success" ? "#24512c" :
+                   apiStatus === "error" ? "#ab2b49" : "#624e8d",
+            background: apiStatus === "success" ? "#d9ffe9" :
+                        apiStatus === "error" ? "#ffdbe2" : "#f6f0fe",
+            borderRadius: 8,
+            padding: "7px 11px",
+            fontSize: 15,
+            minHeight: 21,
+            fontWeight: 500
+          }} role={apiStatus === "error" ? "alert" : "status"}>
+            {apiMsg}
+          </div>
+        )}
+        {/* Dev note for integration (remove/comment out for prod) */}
+        <div style={{
+          fontSize: 12.5,
+          color: "#8974b6",
+          margin: "6px 0 2px",
+          maxWidth: "93%",
+          textAlign: "center"
+        }}>
+          <span style={{ fontStyle: "italic" }}>
+            Placeholder: Sends question/file for external processing. <br />
+            <b>To integrate</b>: Replace <code>simulateApiSend</code> with real fetch/axios call for API.
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
