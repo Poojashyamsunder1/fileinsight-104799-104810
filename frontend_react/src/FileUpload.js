@@ -155,6 +155,68 @@ function FileUpload({ onUploadComplete }) {
   const onDragLeave = (e) => {e.preventDefault(); setDragHover(false);};
   const onDrop = (e) => {e.preventDefault(); setDragHover(false); onFileChange(e);};
 
+  // UI rendering: if we have finished a PDF upload (i.e. previewUrl and previewable set), show the preview instead of the upload area.
+  if (!!previewUrl && !!lastUploadedFile?.previewable) {
+    // PDF preview mode (after upload)
+    return (
+      <div className="box preview-box" style={{ maxWidth: 460, margin: "32px auto 0", background: "#fff", boxShadow: "0 2px 8px rgba(36,99,235,0.05)" }}>
+        {/* Feedback controls */}
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+          <span style={{ fontWeight: 600, fontSize: 18, color: "#624e8d", flexGrow: 1 }}>Your Uploaded PDF</span>
+          <button
+            style={{
+              border: "none",
+              background: "none",
+              color: "#b9a4e4",
+              fontSize: 16,
+              fontWeight: 700,
+              cursor: "pointer",
+              marginLeft: 8,
+              borderRadius: "50%",
+              width: 30, height: 30,
+              textAlign: "center",
+              lineHeight: "30px"
+            }}
+            title="Upload another file"
+            aria-label="Upload another file"
+            onClick={() => {
+              setLastUploadedFile(null);
+              setPreviewUrl(null);
+              setFile(null);
+              setProgress(0);
+              setError("");
+              setSuccess("");
+            }}
+          >
+            ×
+          </button>
+        </div>
+        <div style={{ margin: "0 auto" }}>
+          <PdfPreview
+            fileUrl={previewUrl}
+            style={{
+              margin: "0 auto 8px",
+              border: "1.7px solid #b9a4e4",
+              background: "#faf9fd",
+              borderRadius: 16,
+              boxShadow: "0 2px 8px rgba(98,78,141,0.08)",
+            }}
+          />
+        </div>
+        <div style={{ textAlign: "center", color: "#292626", fontSize: 15, marginTop: 7 }}>
+          <strong>{lastUploadedFile?.file.name.length > 44 ? lastUploadedFile.file.name.slice(0,44)+'…' : lastUploadedFile.file.name}</strong>
+          <span style={{ color: "#b9a4e4", marginLeft: 7 }}>
+            ({formatBytes(lastUploadedFile.file.size)})
+          </span>
+        </div>
+        <div style={{ textAlign: "center", margin: "12px 0 2px", fontSize: 15, color: "#624e8d" }}>
+          PDF preview, page navigation enabled
+        </div>
+      </div>
+    );
+  }
+
+  // File upload area (no finished PDF upload to preview)
   return (
     <div className={"box upload-box"} style={{maxWidth: 410, margin: "28px auto 0", boxShadow: dragHover ? "0 0 0 4px #b9a4e4" : undefined}}>
       <div
@@ -277,18 +339,6 @@ function FileUpload({ onUploadComplete }) {
       >
         {uploading ? "Uploading..." : "Upload"}
       </button>
-
-      {/* PDF preview section, styled per app, only after upload and for PDFs */}
-      {(!!previewUrl && !!lastUploadedFile?.previewable) &&
-        <PdfPreview
-          fileUrl={previewUrl}
-          style={{
-            margin: "32px auto 6px",
-            border: "1.5px solid #b9a4e4",
-            background: "#faf9fd"
-          }}
-        />
-      }
     </div>
   );
 }
