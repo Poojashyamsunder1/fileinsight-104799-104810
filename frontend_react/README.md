@@ -9,6 +9,13 @@ This project provides a minimal React template with a clean, modern UI and minim
 - **Fast**: Minimal dependencies for quick loading times
 - **Simple**: Easy to understand and modify
 
+## Auth Screens (Login, Signup, Reset)
+- **LoginPage**: Email/password, Supabase Auth integration, themed to PDF Wizard.
+- **SignupPage**: Account registration flow, designed to match.
+- **ResetPasswordPage**: Password reset email workflow, consistent UI.
+- All screens feature error and success state feedback, and direct navigation (no react-router required).
+- App component manages navigation in-memory to preserve minimalism.
+
 ## Getting Started
 
 In the project directory, you can run:
