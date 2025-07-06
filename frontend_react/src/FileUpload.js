@@ -126,11 +126,39 @@ function FileUpload({ onUploadComplete }) {
       if (uploadError) throw uploadError;
 
       setProgress(100);
-      setSuccess("Upload successful!");
 
       // Retrieve the public URL for preview
       const { data: urlData } = supabase.storage.from("pdfwizard").getPublicUrl(path);
       const publicUrl = urlData?.publicUrl || null;
+
+      // Insert metadata about the uploaded file into the files table (MUST include user_id!)
+      try {
+        const { error: insertError } = await supabase
+          .from("files")
+          .insert([{
+            user_id: user.id,
+            file_name: file.name,
+            storage_path: path,
+            uploaded_at: new Date().toISOString(),
+            file_type: file.type || (
+              file.name.toLowerCase().endsWith(".pdf") ? "pdf"
+                : file.name.toLowerCase().endsWith(".epub") ? "epub"
+                : file.name.toLowerCase().endsWith(".mobi") ? "mobi"
+                : file.name.toLowerCase().endsWith(".azw3") ? "azw3"
+                : "unknown"
+            ),
+            file_size: file.size,
+            preview_url: publicUrl
+          }]);
+        if (insertError) throw insertError;
+        setSuccess("Upload successful!");
+      } catch (metaErr) {
+        setError("Upload succeeded but metadata save failed: " + (metaErr.message || metaErr.error || "Unknown error"));
+        setUploading(false);
+        setTimeout(() => setProgress(0), 1400);
+        return;
+      }
+
       // For PDFs only: show preview
       const previewable = file.name.toLowerCase().endsWith(".pdf");
       setPreviewUrl(previewable ? (publicUrl || file) : null); // Fallback to file if needed
