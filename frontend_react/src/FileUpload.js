@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import PdfPreview from "./PdfPreview";
+import QuestionInput from "./QuestionInput";
 import "./App.css";
 
 /**
@@ -212,6 +213,12 @@ function FileUpload({ onUploadComplete }) {
         <div style={{ textAlign: "center", margin: "12px 0 2px", fontSize: 15, color: "#624e8d" }}>
           PDF preview, page navigation enabled
         </div>
+        {/* New: QuestionInput below preview */}
+        <QuestionSection
+          storagePath={lastUploadedFile?.metadata?.path || null}
+          fileName={lastUploadedFile?.file.name}
+          fileSize={lastUploadedFile?.file.size}
+        />
       </div>
     );
   }
@@ -340,6 +347,80 @@ function FileUpload({ onUploadComplete }) {
         {uploading ? "Uploading..." : "Upload"}
       </button>
     </div>
+  );
+}
+
+/** 
+ * Helper: Renders the question input section hooked to Supabase and the last-uploaded file
+ */
+function QuestionSection({ storagePath, fileName, fileSize }) {
+  const [user, setUser] = React.useState(null);
+  const [fileId, setFileId] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let active = true;
+    async function fetchFileIdAndUser() {
+      setLoading(true);
+      setFileId(null);
+      const supabase = supabaseClientSingleton();
+      const ures = await supabase.auth.getUser();
+      const userObj = ures?.data?.user || null;
+      setUser(userObj);
+      if (!userObj || !storagePath) {
+        setLoading(false);
+        return;
+      }
+      // Query files table for exact user's storagePath record
+      // Prefer narrow search since storagePath is unique and indexed
+      const { data: files, error: fileErr } = await supabase
+        .from("files")
+        .select("id")
+        .eq("user_id", userObj.id)
+        .eq("storage_path", storagePath)
+        .order("uploaded_at", { ascending: false })
+        .limit(1);
+      if (!active) return;
+      if (fileErr || !files?.length) {
+        setFileId(null);
+      } else {
+        setFileId(files[0].id);
+      }
+      setLoading(false);
+    }
+    fetchFileIdAndUser();
+    return () => { active = false; };
+  }, [storagePath]);
+
+  if (!storagePath) return null; // Don't render if missing data
+  if (loading) {
+    return (
+      <div
+        className="box question-box"
+        style={{ maxWidth: 460, margin: "24px auto 0", background: "#f6f0fe", border: "1.5px solid #b9a4e4", color: "#31245b", textAlign: "center", borderRadius: 16 }}
+      >
+        <div style={{fontWeight: 500, color: "#624e8d"}}>Loading question box...</div>
+      </div>
+    );
+  }
+  if (!user) {
+    return (
+      <div
+        className="box question-box"
+        style={{ maxWidth: 460, margin: "24px auto 0", background: "#f6f0fe", border: "1.5px solid #b9a4e4", color: "#ab2b49", textAlign: "center", borderRadius: 16 }}
+        role="alert"
+      >
+        You must be logged in to ask a question.
+      </div>
+    );
+  }
+
+  return (
+    <QuestionInput
+      fileId={fileId}
+      fileStoragePath={storagePath}
+      user={user}
+    />
   );
 }
 
